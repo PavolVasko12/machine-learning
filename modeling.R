@@ -2,7 +2,7 @@
 #STEP 1: LOAD ALL NECESSARY LIBRARIES FOR OUR PROJECT
 #=====================================================
 #List of the libraries
-packages <- c("SASxport", "dplyr", "caret", "DAAG", "glmnet");
+packages <- c("SASxport", "dplyr", "caret", "DAAG", "glmnet", "mlbench", "psych");
 #Function for checking if library is installed if not then install it and load it ot R so we can use it.
 install_libraries <- function(package){
   new.package <- package[!(package %in% installed.packages()[, "Package"])]
@@ -29,9 +29,9 @@ read_data()
 
 
 
-#=============================
-#STEP 3: MODELING AND TESTING
-#=============================
+#=================
+#STEP 3: MODELING 
+#=================
 #Evaluating row model
 row_data_modeling <- function(){
   test_number <- round(0.25 * nrow(data))
@@ -51,6 +51,9 @@ row_data_modeling <- function(){
 row_data_modeling()
 
 
+#===========================
+#STEP 4: IMPROVING MODELING 
+#===========================
 #Evaluating model where BMI splited into 4 categories
 four_categories_bmi_data_modeling <- function(){
   data_bmi <- data
@@ -134,11 +137,17 @@ factors_data_modeling <- function(){
 }
 factors_data_modeling()
 
+#Converting nuericla value to binary
+binary_data_modeling <- function() {
+  data_binary <- data_shuffled
+}
+
+
 
 
 
 #=======================================
-#STEP 4: MODELING WITH CROSS VALIDATION
+#STEP 5: MODELING WITH CROSS VALIDATION
 #=======================================
 #Cross-Validation with 10 folds, outputs the result of predicted value so you can compare to the real value.
 cross_val <- function(num_predictions, export){
@@ -158,24 +167,44 @@ cross_val(100, FALSE)
 
 
 
-#===================================================
-#STEP 5: CROSS VAL WITH FEATURE SELECTION TECHNIQUE
-#===================================================
+#====================================
+#STEP 6: FEATURE SELECTION TECHNIQUE
+#====================================
 
-add_labels <- function(fit, ...) {
+plot_fit <- function(fit, ...) {
+  plot(fit, xvar="lambda")
   L <- length(fit$lambda)
   x <- log(fit$lambda[L])
   y <- fit$beta[, L]
   labs <- names(y)
   text(x, y, labels=labs, ...)
-  plot(fit, xvar="lambda")
-  add_labels(fit)
 }
 
 #Feautre selection technique for identifying important variables
-feature_selection_technique <- function() {
-  
+#The more coefficienet the feature has the more impact it has on our depended variable (BMI)
+feature_selection_technique <- function(data_set) {
+  data_set <- data_shuffled
+  bmi <- select(data_set, "X.BMI5")
+  drop_column <- c("X.BMI5") 
+  data_set_without_BMI <- data_set[, !(names(data_set) %in%  drop_column)]
+  fit <- glmnet(as.matrix(data_set_without_BMI), as.matrix(bmi), standardize = TRUE, alpha = 1)
+  plot_fit(fit)
 }
+feature_selection_technique(data_shuffled)
+
+#Only selected featre with klod = 10 to clearly see the imprtance of the features
+only_selected_features <- function(data_set) {
+  bmi <- select(data_set, "X.BMI5")
+  selected_features <- select(data_set, "GENHLTH", "EXERANY2", "INTERNET", "SEX", "X.FRUTSU1", "X.EDUCAG", "GENERAL.MERCHANDISER", "X.SMOKER3")
+  fit <- cv.glmnet(as.matrix(selected_features), as.matrix(bmi),standardize = TRUE,type.measure = "mse", nfolds = 10, alpha = 1)
+  plot_fit(fit)
+}
+only_selected_features(data_shuffled)
+
+
+
+
+
 
 
 
