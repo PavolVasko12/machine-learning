@@ -19,7 +19,7 @@ install_libraries(packages)
 #Read data into R
 read_data <- function(){
   #Read the data and assign them to global scope
-  assign("data", read.csv("Ready_data.csv"), envir = .GlobalEnv)
+  assign("data", read.csv("project/Ready_data.csv"), envir = .GlobalEnv)
   #Show number of observations and features of first 10 examples and its type
   str(data)
   #Shows the median, mean and Min, Max values
@@ -122,10 +122,11 @@ factors_data_modeling <- function(){
   assign("data_factors", data_factors, envir = .GlobalEnv)
   
   test_number <- round(0.25 * nrow(data_factors))
-  data_shuffled <- data_factors[sample(nrow(data_factors)),]
-  end_row <- nrow(data_shuffled);
-  data_test <- data_shuffled[1:test_number-1,]
-  data_train <- data_shuffled[test_number:end_row , ]
+  #data_shuffled <- data_factors[sample(nrow(data_factors)),]
+  data_factors <- data_factors[sample(nrow(data_factors)),]
+  end_row <- nrow(data_factors);
+  data_test <- data_factors[1:test_number-1,]
+  data_train <- data_factors[test_number:end_row , ]
   
   model <- lm(X.BMI5 ~., data = data_train)
   prediction <- predict(model,data_test)
@@ -137,7 +138,7 @@ factors_data_modeling <- function(){
 }
 factors_data_modeling()
 
-#Converting nuericla value to binary
+#Converting numerical values to binary
 binary_data_modeling <- function() {
   data_binary <- data_shuffled
 }
@@ -151,8 +152,8 @@ binary_data_modeling <- function() {
 #=======================================
 #Cross-Validation with 10 folds, outputs the result of predicted value so you can compare to the real value.
 cross_val <- function(num_predictions, export){
-  model <- lm(X.BMI5 ~., data = data_shuffled)
-  cv_model <- cv.lm(data_shuffled, model, m=10)
+  model <- lm(X.BMI5 ~., data = data_factors)
+  cv_model <- cv.lm(data_factors, model, m=10)
   assign("cv_model", cv_model, envir = .GlobalEnv)
   predicted_features <- data.frame(cv_model$X.BMI5, cv_model$Predicted, cv_model$cvpred)
   if(export == TRUE){
@@ -196,7 +197,8 @@ feature_selection_technique(data_shuffled)
 only_selected_features <- function(data_set) {
   bmi <- select(data_set, "X.BMI5")
   selected_features <- select(data_set, "GENHLTH", "EXERANY2", "INTERNET", "SEX", "X.FRUTSU1", "X.EDUCAG", "GENERAL.MERCHANDISER", "X.SMOKER3")
-  fit <- cv.glmnet(as.matrix(selected_features), as.matrix(bmi),standardize = TRUE,type.measure = "mse", nfolds = 10, alpha = 1)
+  fit <- glmnet(as.matrix(selected_features), as.matrix(bmi), standardize = TRUE, alpha = 1)
+  #fit <- cv.glmnet(as.matrix(selected_features), as.matrix(bmi),standardize = TRUE,type.measure = "mse", nfolds = 10, alpha = 1)
   plot_fit(fit)
 }
 only_selected_features(data_shuffled)
