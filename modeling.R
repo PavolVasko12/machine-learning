@@ -183,7 +183,7 @@ plot_fit <- function(fit, ...) {
 
 #Feautre selection technique for identifying important variables
 #The more coefficienet the feature has the more impact it has on our depended variable (BMI)
-feature_selection_technique <- function(data_set) {
+feature_selection_technique_lasso <- function(data_set) {
   data_set <- data_shuffled
   bmi <- select(data_set, "X.BMI5")
   drop_column <- c("X.BMI5") 
@@ -191,9 +191,20 @@ feature_selection_technique <- function(data_set) {
   fit <- glmnet(as.matrix(data_set_without_BMI), as.matrix(bmi), standardize = TRUE, alpha = 1)
   plot_fit(fit)
 }
-feature_selection_technique(data_shuffled)
+feature_selection_technique_lasso(data_shuffled)
 
-#Only selected featre with klod = 10 to clearly see the imprtance of the features
+
+feature_selection_technique_boruta <- function(data_set, data_set_size){
+   data_sample <- sample_n(data_set, data_set_size)
+   Boruta_fst <- Boruta(X.BMI5 ~ ., data = data_sample, doTrace = 2)
+   assign("Boruta_fst", Boruta_fst, envir = .GlobalEnv)
+   return(Boruta_fst)
+}
+
+feature_selection_technique_boruta(data_factors, 100)
+
+
+#Only selected feature with kFold = 10 to clearly see the imprtance of the features
 only_selected_features <- function(data_set) {
   bmi <- select(data_set, "X.BMI5")
   selected_features <- select(data_set, "GENHLTH", "EXERANY2", "INTERNET", "SEX", "X.FRUTSU1", "X.EDUCAG", "GENERAL.MERCHANDISER", "X.SMOKER3")
@@ -203,6 +214,79 @@ only_selected_features <- function(data_set) {
 }
 only_selected_features(data_shuffled)
 
+
+
+
+
+
+#==================================================================
+#STEP 7: My OWN CROSS VALIDATION WITH FEATURE SELECTION TECHNIQUE
+#==================================================================
+model_predict <- function(data_train, data_test){
+  print("INSIDE MODELING")
+  model <- lm(X.BMI5 ~., data = data_train)
+  print("BEFORE PREDICTION")
+  #print("!!!!! MODEL : \n")
+  #print(summary(model))
+  #print("!!!!! DATA TRAIN : \n")
+  #print(str(data_train))
+  #print("!!!!! DATA TEST : \n")
+  #print(str(data_test))
+  prediction <- predict(model, data_test)
+  print("AFTER PREDICTION")
+  single_performance <- evaluate_performance(prediction, data_test)
+  return(single_performance)
+}
+
+evaluate_performance <- function(prediction, data_test){
+  print("INSIDE EVALUATION")
+  SSE <- sum((data_test$X.BMI5 - prediction) ^ 2)
+  SST <- sum((data_test$X.BMI5 - mean(data_test$X.BMI5)) ^ 2)
+  model_preformance <- 1 - SSE/SST
+  return(model_preformance)
+}
+
+
+
+CV_with_FST <- function(data_set, kFold, ...){
+  list_argument <- list(...)
+  if(!is.null(list_argument$sample_size)) {
+    data_set <- sample_n(data_set, list_argument$sample_size)
+    print("INSIDE IF ADDITIONAL PARAMETER")
+  }
+  print(nrow(data_set))
+  data_set_row_length <- nrow(data_set)
+  kFold_size <- floor(data_set_row_length / kFold)
+  newCounter <- kFold_size
+  oldCounter <- 0
+  average_performance <- 0;
+  test <- 0
+  
+  for (i in 1:kFold) {
+    cat(sprintf('i:  %i kfold out of: %i \n',i, kFold)) 
+    data_test <- data_set[c(oldCounter:newCounter),]
+    data_train <- data_set[-c(oldCounter:newCounter),]
+    
+    data_set_size <- nrow(data_train)
+    
+    boruta_result <- feature_selection_technique_boruta(data_train, data_set_size)
+    boruta_signifificant <- names(boruta_result$finalDecision[boruta_result$finalDecision %in% c("Confirmed", "Tentative")])
+    
+    data_test_after_selection <- data_test[, c("X.BMI5", boruta_signifificant)]
+    data_train_after_selection <- data_train[, c("X.BMI5", boruta_signifificant)]
+    
+    model_prediction <- model_predict(data_train_after_selection, data_test_after_selection)
+    average_performance <- average_performance + model_prediction
+    print(average_performance)
+    cat(sprintf('Single model prediction:  %f \n', model_prediction)) 
+    oldCounter <- newCounter + 1
+    newCounter <- newCounter + kFold_size
+  }
+  regression_accuracy <- average_performance / kFold
+  sprintf("Single Average Accuracy after %s kFold is: %s", i, regression_accuracy)
+}
+
+CV_with_FST(data_factors, 3, sample_size=400)
 
 
 
