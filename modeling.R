@@ -54,6 +54,7 @@ row_data_modeling()
 #===========================
 #STEP 4: IMPROVING MODELING 
 #===========================
+# 4.1
 #Evaluating model where BMI splited into 4 categories
 four_categories_bmi_data_modeling <- function(){
   data_bmi <- data
@@ -78,7 +79,7 @@ four_categories_bmi_data_modeling <- function(){
 }
 four_categories_bmi_data_modeling()
 
-
+# 4.2
 #Evaluating model where AGE splited into 6 categories
 four_categories_bmi_data_modeling <- function(){
   data_age <- data
@@ -105,7 +106,7 @@ four_categories_bmi_data_modeling <- function(){
 }
 four_categories_bmi_data_modeling()
 
-
+# 4.3
 #Converting some features to factores
 factors_data_modeling <- function(){
   data_factors <- data
@@ -138,11 +139,6 @@ factors_data_modeling <- function(){
 }
 factors_data_modeling()
 
-#Converting numerical values to binary
-binary_data_modeling <- function() {
-  data_binary <- data_shuffled
-}
-
 
 
 
@@ -151,7 +147,7 @@ binary_data_modeling <- function() {
 #STEP 5: MODELING WITH CROSS VALIDATION
 #=======================================
 #Cross-Validation with 10 folds, outputs the result of predicted value so you can compare to the real value.
-cross_val <- function(num_predictions, export){
+cross_val <- function(export, num_predictions){
   model <- lm(X.BMI5 ~., data = data_factors)
   cv_model <- cv.lm(data_factors, model, m=10)
   assign("cv_model", cv_model, envir = .GlobalEnv)
@@ -164,7 +160,7 @@ cross_val <- function(num_predictions, export){
   }
 }
 #cross_val (par1, par2); par1 - number of exmaples to be displayed in console in R, par2 - set true or false to export all predicted value as csv to your root R folder on your machine. 
-cross_val(100, FALSE)
+cross_val(FALSE, 100)
 
 
 
@@ -223,23 +219,13 @@ only_selected_features(data_shuffled)
 #STEP 7: My OWN CROSS VALIDATION WITH FEATURE SELECTION TECHNIQUE
 #==================================================================
 model_predict <- function(data_train, data_test){
-  print("INSIDE MODELING")
   model <- lm(X.BMI5 ~., data = data_train)
-  print("BEFORE PREDICTION")
-  #print("!!!!! MODEL : \n")
-  #print(summary(model))
-  #print("!!!!! DATA TRAIN : \n")
-  #print(str(data_train))
-  #print("!!!!! DATA TEST : \n")
-  #print(str(data_test))
   prediction <- predict(model, data_test)
-  print("AFTER PREDICTION")
   single_performance <- evaluate_performance(prediction, data_test)
   return(single_performance)
 }
 
 evaluate_performance <- function(prediction, data_test){
-  print("INSIDE EVALUATION")
   SSE <- sum((data_test$X.BMI5 - prediction) ^ 2)
   SST <- sum((data_test$X.BMI5 - mean(data_test$X.BMI5)) ^ 2)
   model_preformance <- 1 - SSE/SST
@@ -249,35 +235,35 @@ evaluate_performance <- function(prediction, data_test){
 
 
 CV_with_FST <- function(data_set, kFold, ...){
+  
   list_argument <- list(...)
   if(!is.null(list_argument$sample_size)) {
-    data_set <- sample_n(data_set, list_argument$sample_size)
-    print("INSIDE IF ADDITIONAL PARAMETER")
+    data <- sample_n(data_set, list_argument$sample_size)
   }
-  print(nrow(data_set))
-  data_set_row_length <- nrow(data_set)
+ 
+  print(nrow(data))
+  data_set_row_length <- nrow(data)
   kFold_size <- floor(data_set_row_length / kFold)
   newCounter <- kFold_size
   oldCounter <- 0
   average_performance <- 0;
-  test <- 0
   
   for (i in 1:kFold) {
     cat(sprintf('i:  %i kfold out of: %i \n',i, kFold)) 
-    data_test <- data_set[c(oldCounter:newCounter),]
-    data_train <- data_set[-c(oldCounter:newCounter),]
+    data_test <- data[c(oldCounter:newCounter),]
+    data_train <- data[-c(oldCounter:newCounter),]
+    data_size <- nrow(data_train)
     
-    data_set_size <- nrow(data_train)
+    if(list_argument$boruta == TRUE) {
+      boruta_result <- feature_selection_technique_boruta(data_train, data_size)
+      boruta_signifificant <- names(boruta_result$finalDecision[boruta_result$finalDecision %in% c("Confirmed", "Tentative")])
+      data_test <- data_test[, c("X.BMI5", boruta_signifificant)]
+      data_train <- data_train[, c("X.BMI5", boruta_signifificant)]
+    }
     
-    boruta_result <- feature_selection_technique_boruta(data_train, data_set_size)
-    boruta_signifificant <- names(boruta_result$finalDecision[boruta_result$finalDecision %in% c("Confirmed", "Tentative")])
-    
-    data_test_after_selection <- data_test[, c("X.BMI5", boruta_signifificant)]
-    data_train_after_selection <- data_train[, c("X.BMI5", boruta_signifificant)]
-    
-    model_prediction <- model_predict(data_train_after_selection, data_test_after_selection)
+    model_prediction <- model_predict(data_train, data_test)
     average_performance <- average_performance + model_prediction
-    print(average_performance)
+    
     cat(sprintf('Single model prediction:  %f \n', model_prediction)) 
     oldCounter <- newCounter + 1
     newCounter <- newCounter + kFold_size
@@ -286,7 +272,8 @@ CV_with_FST <- function(data_set, kFold, ...){
   sprintf("Single Average Accuracy after %s kFold is: %s", i, regression_accuracy)
 }
 
-CV_with_FST(data_factors, 3, sample_size=400)
+CV_with_FST(data_factors, 10, sample_size=100000, boruta = TRUE)
+
 
 
 
