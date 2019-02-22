@@ -1,8 +1,9 @@
+
 #=====================================================
 #STEP 1: LOAD ALL NECESSARY LIBRARIES FOR OUR PROJECT
 #=====================================================
 #List of the libraries
-packages <- c("SASxport", "dplyr", "caret", "DAAG", "glmnet", "mlbench", "psych");
+packages <- c("SASxport", "dplyr", "caret", "DAAG", "glmnet", "mlbench", "psych", "Boruta");
 #Function for checking if library is installed if not then install it and load it ot R so we can use it.
 install_libraries <- function(package){
   new.package <- package[!(package %in% installed.packages()[, "Package"])]
@@ -123,7 +124,6 @@ factors_data_modeling <- function(){
   assign("data_factors", data_factors, envir = .GlobalEnv)
   
   test_number <- round(0.25 * nrow(data_factors))
-  #data_shuffled <- data_factors[sample(nrow(data_factors)),]
   data_factors <- data_factors[sample(nrow(data_factors)),]
   end_row <- nrow(data_factors);
   data_test <- data_factors[1:test_number-1,]
@@ -168,6 +168,7 @@ cross_val(FALSE, 100)
 #STEP 6: FEATURE SELECTION TECHNIQUE
 #====================================
 
+#6.1
 plot_fit <- function(fit, ...) {
   plot(fit, xvar="lambda")
   L <- length(fit$lambda)
@@ -177,6 +178,7 @@ plot_fit <- function(fit, ...) {
   text(x, y, labels=labs, ...)
 }
 
+#6.2
 #Feautre selection technique for identifying important variables
 #The more coefficienet the feature has the more impact it has on our depended variable (BMI)
 feature_selection_technique_lasso <- function(data_set) {
@@ -189,7 +191,7 @@ feature_selection_technique_lasso <- function(data_set) {
 }
 feature_selection_technique_lasso(data_shuffled)
 
-
+#6.3
 feature_selection_technique_boruta <- function(data_set, data_set_size){
    data_sample <- sample_n(data_set, data_set_size)
    Boruta_fst <- Boruta(X.BMI5 ~ ., data = data_sample, doTrace = 2)
@@ -199,13 +201,13 @@ feature_selection_technique_boruta <- function(data_set, data_set_size){
 
 feature_selection_technique_boruta(data_factors, 100)
 
-
+#6.4
 #Only selected feature with kFold = 10 to clearly see the imprtance of the features
 only_selected_features <- function(data_set) {
   bmi <- select(data_set, "X.BMI5")
-  selected_features <- select(data_set, "GENHLTH", "EXERANY2", "INTERNET", "SEX", "X.FRUTSU1", "X.EDUCAG", "GENERAL.MERCHANDISER", "X.SMOKER3")
+  boruta_signifificant <- names(Boruta_fst$finalDecision[Boruta_fst$finalDecision %in% c("Confirmed", "Tentative")])
+  selected_features <- select(data_set, boruta_signifificant)
   fit <- glmnet(as.matrix(selected_features), as.matrix(bmi), standardize = TRUE, alpha = 1)
-  #fit <- cv.glmnet(as.matrix(selected_features), as.matrix(bmi),standardize = TRUE,type.measure = "mse", nfolds = 10, alpha = 1)
   plot_fit(fit)
 }
 only_selected_features(data_shuffled)
